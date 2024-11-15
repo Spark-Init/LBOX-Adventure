@@ -4,11 +4,12 @@ Makes robots very sad about their financial decisions. Works in MvM, uses some w
 
 ## Changelog
 
+- v1.3 Added Auto Walk feature & stability improvements 11/15/24
 - v1.2 Initial Release 11/13/24
 
 ## How to not mess this up
 1. Equip Vaccinator (important!!!)
-2. Stand in upgrade station
+2. Stand in upgrade station (or enable Auto Walk with L key)
 3. Watch money go brrr
 4. Press K if something breaks
 
@@ -25,6 +26,10 @@ Makes robots very sad about their financial decisions. Works in MvM, uses some w
 - Don't blame me if you get kicked (you won't but y'know...)
 - Works best when you're not being shot at by 47 robots
 - This only works in wave 1, and you must have at least 600 credits to start with.
+
+## Controls
+- L key: Toggle Auto Walk
+- K key: Emergency cleanup/reset
 
 ## Credits
 - whoever found this glitch first lol
