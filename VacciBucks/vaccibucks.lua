@@ -462,7 +462,7 @@ callbacks.Register("Draw", function()
        if age >= UI.notificationLifetime then
            table.remove(UI.notifications, i)
        else
-           DrawNotification(notif, barX, barY + barHeight + 10)
+           DrawNotification(notif, barX, barY + barHeight + 10 + (i - 1) * (UI.notificationHeight + UI.notificationSpacing))
        end
    end
 end)
