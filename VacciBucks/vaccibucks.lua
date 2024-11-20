@@ -1,7 +1,9 @@
--- VacciBucks v1.4
--- made this to automate the mvm money glitch
--- equip vaccinator, go in upgrade zone, let the magic happen, repeat
--- press K to force cleanup if something breaks, press L to toggle auto walk
+-- VacciBucks v1.4.1 By Spark
+-- Automation for MvM money glitch
+-- Equip Vaccinator for Medic, after joining the game walk in the upgrade zone - or press L to toggle auto walk - and let the ✨ magic ✨ happen
+
+-- Press [ L ] to toggle Auto Walk
+-- Press [ K ] to Force Cleanup if something breaks
 
 local lastExploitTime = 0
 local lastCleanupTime = 0
@@ -333,12 +335,17 @@ local function HasVaccinator(player)
    
    -- check if it's a vacc (item index 998)
    local weaponId = secondaryWeapon:GetPropInt("m_iItemDefinitionIndex")
-   return weaponId == 998
+   local hasVacc = weaponId == 998
+
+   if not hasVacc then
+       AddNotification("Secondary weapon is not the Vaccinator!", "error")
+   end
+
+    return hasVacc
 end
 
 local function TriggerMoneyExploit()
    local currentTime = globals.CurTime()
-   
    if isExploiting then
        AddNotification("Sequence already in progress!", "error")
        return
@@ -388,8 +395,17 @@ local function TriggerMoneyExploit()
    nextUpgradeTime = currentTime + UPGRADE_DELAY
 end
 
+local watermarkX, watermarkY = 10, 10 
+local isDragging = false 
+local dragOffsetX, dragOffsetY = 0, 0
+
+local watermarkX, watermarkY = 10, 10 
+local isDragging = false 
+local dragOffsetX, dragOffsetY = 0, 0
+
+
+-- TODO: Add a check wether the GUI is open or not | Waiting for API update
 callbacks.Register("Draw", function()
-    local offsetX, offsetY = 10, 10
     local paddingX, paddingY = 10, 5
     local baseText = "VacciBucks"
     local cleanupText = " [K] Cleanup"
@@ -407,50 +423,102 @@ callbacks.Register("Draw", function()
 
     local barWidth = textWidth + (paddingX * 2)
     local barHeight = textHeight + (paddingY * 2)
-    local barX = offsetX
-    local barY = offsetY
+
+    local mouse = {
+        x = input.GetMousePos()[1],
+        y = input.GetMousePos()[2]
+    }
+
+    local mousePos = {input.GetMousePos()}
+    local mouseX, mouseY = mousePos[1], mousePos[2]
+    local screenWidth, screenHeight = draw.GetScreenSize()
+
+    if input.IsButtonDown(MOUSE_LEFT) then
+        if isDragging then
+            watermarkX = mouse.x - dragOffsetX
+            watermarkY = mouse.y - dragOffsetY
+
+            if watermarkX < 0 then
+                watermarkX = 0
+            elseif watermarkX + barWidth > screenWidth then
+                watermarkX = screenWidth - barWidth
+            end
+
+            if watermarkY < 0 then
+                watermarkY = 0
+            elseif watermarkY + barHeight > screenHeight then
+                watermarkY = screenHeight - barHeight
+            end
+        else
+            if mouse.x >= watermarkX and mouse.x <= (watermarkX + barWidth) and
+            mouse.y >= watermarkY and mouse.y <= (watermarkY + barHeight) then
+                isDragging = true
+                dragOffsetX = mouse.x - watermarkX
+                dragOffsetY = mouse.y - watermarkY
+            end
+        end
+    else
+        isDragging = false
+    end
 
     draw.Color(0, 0, 0, 178)
-    draw.FilledRect(barX, barY, barX + barWidth, barY + barHeight)
+    draw.FilledRect(watermarkX, watermarkY, watermarkX + barWidth, watermarkY + barHeight)
 
     draw.Color(199, 170, 255, 255)
-    draw.FilledRect(barX, barY, barX + barWidth, barY + 2)
+    draw.FilledRect(watermarkX, watermarkY, watermarkX + barWidth, watermarkY + 2)
 
     draw.Color(UI.colors.text[1], UI.colors.text[2], UI.colors.text[3], 255)
-    draw.Text(barX + paddingX, barY + paddingY, finalBaseText)
+    draw.Text(watermarkX + paddingX, watermarkY + paddingY, finalBaseText)
 
     local baseTextWidth, _ = draw.GetTextSize(finalBaseText)
     draw.Color(UI.colors.textDim[1], UI.colors.textDim[2], UI.colors.textDim[3], 255)
-    draw.Text(barX + paddingX + baseTextWidth, barY + paddingY, cleanupText)
+    draw.Text(watermarkX + paddingX + baseTextWidth, watermarkY + paddingY, cleanupText)
 
     local cleanupTextWidth, _ = draw.GetTextSize(cleanupText)
-    draw.Text(barX + paddingX + baseTextWidth + cleanupTextWidth, barY + paddingY, autoWalkText)
+    draw.Text(watermarkX + paddingX + baseTextWidth + cleanupTextWidth, watermarkY + paddingY, autoWalkText)
 
     if autoWalkEnabled then
         local autoWalkTextWidth, _ = draw.GetTextSize(autoWalkText)
         draw.Color(0, 255, 0, 255)
-        draw.Text(barX + paddingX + baseTextWidth + cleanupTextWidth + autoWalkTextWidth, barY + paddingY, enabledText)
+        draw.Text(watermarkX + paddingX + baseTextWidth + cleanupTextWidth + autoWalkTextWidth, watermarkY + paddingY, enabledText)
     end
 
     local currentTime = globals.CurTime()
-   
+
+    local totalNotificationHeight = 0
+    for i = 1, #UI.notifications do
+        local notif = UI.notifications[i]
+        totalNotificationHeight = totalNotificationHeight + UI.notificationHeight + UI.notificationSpacing
+    end
+
+    local remainingSpaceBelow = screenHeight - (watermarkY + barHeight)
+    local remainingSpaceAbove = watermarkY
+
+    local notificationY
+    if remainingSpaceBelow >= totalNotificationHeight then
+        notificationY = watermarkY + barHeight + 10
+    else
+        notificationY = watermarkY - totalNotificationHeight - 10
+    end
+
     for i = #UI.notifications, 1, -1 do
         local notif = UI.notifications[i]
         local age = currentTime - notif.time
-        
+
         if age < 0.2 then
             notif.alpha = math.min(notif.alpha + 25, 255)
         elseif age > UI.notificationLifetime - 0.3 then
             notif.alpha = math.max(notif.alpha - 25, 0)
         end
-        
+
         if age >= UI.notificationLifetime and notif.alpha <= 0 then
             table.remove(UI.notifications, i)
         elseif notif.alpha >= 55 then
-            DrawNotification(notif, barX, barY + barHeight + 10 + (i - 1) * (UI.notificationHeight + UI.notificationSpacing))
+            DrawNotification(notif, watermarkX, notificationY + (i - 1) * (UI.notificationHeight + UI.notificationSpacing))
         end
     end
 end)
+        
 
 callbacks.Register("CreateMove", function(cmd)
     -- toggleinput with debounce
