@@ -97,31 +97,42 @@ local function DrawRoundedRect(x, y, w, h, radius, color)
 end
 
 local function DrawNotification(notif, x, y)
-   local width = math.floor(UI.width - 20)
-   local height = math.floor(UI.notificationHeight)
-   
-   DrawRoundedRect(x, y, width, height, UI.cornerRadius, 
-       {25, 25, 25, math.floor(notif.alpha * 0.95)})
-   
-   draw.SetFont(UI.mainFont)
-   draw.Color(notif.color[1], notif.color[2], notif.color[3], math.floor(notif.alpha))
-   draw.Text(math.floor(x + 10), math.floor(y + height/2 - 7), notif.icon)
-   
-   draw.Color(UI.colors.text[1], UI.colors.text[2], UI.colors.text[3], math.floor(notif.alpha))
-   draw.Text(math.floor(x + 30), math.floor(y + height/2 - 7), notif.message)
-   
-   local progress = 1 - ((globals.CurTime() - notif.time) / UI.notificationLifetime)
-   if progress > 0 then
-       local barWidth = math.floor((width - 2) * progress)
-       DrawRoundedRect(
-           math.floor(x + 1),
-           math.floor(y + height - 2),
-           barWidth,
-           2,
-           1,
-           {notif.color[1], notif.color[2], notif.color[3], math.floor(notif.alpha * 0.7)}
-       )
-   end
+    -- Dynamically calculate the width based on the message and icon size
+    draw.SetFont(UI.mainFont)
+    local iconWidth, _ = draw.GetTextSize(notif.icon)
+    local messageWidth, _ = draw.GetTextSize(notif.message)
+    local width = math.floor(iconWidth + messageWidth + 30)  -- 30 is the space between icon and message
+    local height = math.floor(UI.notificationHeight)
+
+    -- Calculate progress for fading effect (between 0 and 1)
+    local progress = 1 - ((globals.CurTime() - notif.time) / UI.notificationLifetime)
+    local alpha = math.floor(notif.alpha * progress)  -- Fade the alpha based on progress
+
+    -- Draw the dark background with 70% opacity
+    draw.Color(0, 0, 0, 178)  -- Black background with 70% opacity
+    draw.FilledRect(x, y, x + width, y + height)
+
+    -- Set font for the icon and draw the icon with fading alpha
+    draw.SetFont(UI.mainFont)
+    draw.Color(notif.color[1], notif.color[2], notif.color[3], alpha)
+    draw.Text(math.floor(x + 5), math.floor(y + height / 2 - 7), notif.icon)
+
+    -- Set font for the message and draw the message with fading alpha
+    draw.Color(UI.colors.text[1], UI.colors.text[2], UI.colors.text[3], alpha)
+    draw.Text(math.floor(x + iconWidth + 15), math.floor(y + height / 2 - 7), notif.message)
+
+    -- Optionally, you could include a progress bar, but only with a faint color (in case you still want to keep the bar):
+    if progress > 0 then
+        local barWidth = math.floor((width - 2) * progress)
+        DrawRoundedRect(
+            math.floor(x + 1),
+            math.floor(y + height - 2),
+            barWidth,
+            2,
+            1,
+            {199, 170, 255, math.floor(alpha * 0.7)}  -- Slight transparency for the bar
+        )
+    end
 end
 
 local function AddMessage(text, color)
@@ -383,8 +394,60 @@ local function TriggerMoneyExploit()
 end
 
 callbacks.Register("Draw", function()
-   local currentTime = globals.CurTime()
-   local notifY = math.floor(UI.y + UI.height + 20)
+    local offsetX, offsetY = 10, 10  -- Offsets for the box position
+    local paddingX, paddingY = 10, 5  -- Padding around the text
+    local baseText = "VacciBucks"
+    local cleanupText = " [K] Cleanup"
+    local autoWalkText = " [L] Autowalk"
+    local enabledText = " (Enabled)"
+    local exploitingText = " (Active)"  -- Text to show if exploiting is active
+
+    -- Dynamically adjust the text based on the status
+    local finalAutoWalkText = autoWalkEnabled and (autoWalkText .. enabledText) or autoWalkText
+    local finalBaseText = isExploiting and (baseText .. exploitingText) or baseText
+
+    -- Concatenate the full message
+    local fullText = finalBaseText .. cleanupText .. finalAutoWalkText
+
+    -- Set the font and calculate text size
+    draw.SetFont(UI.mainFont)
+    local textWidth, textHeight = draw.GetTextSize(fullText)
+
+    -- Calculate the dimensions of the box
+    local barWidth = textWidth + (paddingX * 2)
+    local barHeight = textHeight + (paddingY * 2)
+    local barX = offsetX
+    local barY = offsetY
+
+    -- Draw the dark background with 70% opacity
+    draw.Color(0, 0, 0, 178)  -- RGBA with 70% opacity
+    draw.FilledRect(barX, barY, barX + barWidth, barY + barHeight)
+
+    -- Draw the top border
+    draw.Color(199, 170, 255, 255)  -- Purple for the top border
+    draw.FilledRect(barX, barY, barX + barWidth, barY + 2)
+
+    -- Draw the base text
+    draw.Color(UI.colors.text[1], UI.colors.text[2], UI.colors.text[3], 255)
+    draw.Text(barX + paddingX, barY + paddingY, finalBaseText)
+
+    -- Draw the cleanup text
+    local baseTextWidth, _ = draw.GetTextSize(finalBaseText)
+    draw.Color(UI.colors.textDim[1], UI.colors.textDim[2], UI.colors.textDim[3], 255)
+    draw.Text(barX + paddingX + baseTextWidth, barY + paddingY, cleanupText)
+
+    -- Draw the Autowalk text
+    local cleanupTextWidth, _ = draw.GetTextSize(cleanupText)
+    draw.Text(barX + paddingX + baseTextWidth + cleanupTextWidth, barY + paddingY, autoWalkText)
+
+    -- If Autowalk is enabled, draw the green "Enabled" text
+    if autoWalkEnabled then
+        local autoWalkTextWidth, _ = draw.GetTextSize(autoWalkText)
+        draw.Color(0, 255, 0, 255)  -- Green for "Enabled"
+        draw.Text(barX + paddingX + baseTextWidth + cleanupTextWidth + autoWalkTextWidth, barY + paddingY, enabledText)
+    end
+
+    local currentTime = globals.CurTime()
    
    for i = #UI.notifications, 1, -1 do
        local notif = UI.notifications[i]
@@ -399,29 +462,9 @@ callbacks.Register("Draw", function()
        if age >= UI.notificationLifetime then
            table.remove(UI.notifications, i)
        else
-           DrawNotification(notif, math.floor(UI.x + 10), notifY)
-           notifY = math.floor(notifY + UI.notificationHeight + UI.notificationSpacing)
+           DrawNotification(notif, barX, barY + barHeight + 10 + (i - 1) * (UI.notificationHeight + UI.notificationSpacing))
        end
    end
-   
-   draw.SetFont(UI.titleFont)
-   draw.Color(UI.colors.accent[1], UI.colors.accent[2], UI.colors.accent[3], 255)
-   draw.Text(math.floor(UI.x + 15), math.floor(UI.y + 15), "VacciBucks")
-   
-   draw.SetFont(UI.mainFont)
-   local statusText = isExploiting and "ACTIVE" or "IDLE"
-   local statusColor = isExploiting and UI.colors.success or UI.colors.textDim
-   draw.Color(statusColor[1], statusColor[2], statusColor[3], 255)
-   draw.Text(math.floor(UI.x + 15), math.floor(UI.y + 45), "Status: " .. statusText)
-   
-   -- auto walk status
-   local autoWalkText = "Auto Walk: " .. (autoWalkEnabled and "ENABLED" or "DISABLED")
-   local autoWalkColor = autoWalkEnabled and UI.colors.success or UI.colors.textDim
-   draw.Color(autoWalkColor[1], autoWalkColor[2], autoWalkColor[3], 255)
-   draw.Text(math.floor(UI.x + 15), math.floor(UI.y + 70), autoWalkText)
-   
-   draw.Color(UI.colors.textDim[1], UI.colors.textDim[2], UI.colors.textDim[3], 255)
-   draw.Text(math.floor(UI.x + 15), math.floor(UI.y + 95), "Press [K] to cleanup, [L] to toggle auto walk")
 end)
 
 callbacks.Register("CreateMove", function(cmd)
@@ -499,4 +542,4 @@ callbacks.Register("Unload", function()
     ForceCleanup()
 end)
 
- AddNotification("VacciBucks loaded! [K] for cleanup, [L] for auto walk", "info")
+AddNotification("VacciBucks loaded! [K] for cleanup, [L] for auto walk", "info")
