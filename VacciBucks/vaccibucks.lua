@@ -4,6 +4,7 @@
 -- press K to force cleanup if something breaks, press L to toggle auto walk
 
 local lastExploitTime = 0
+local lastCleanupTime = 0
 local COOLDOWN_TIME = 0.5
 local UPGRADE_DELAY = 0.05
 local SEQUENCE_END_COOLDOWN = 1.0
@@ -454,12 +455,19 @@ end)
 callbacks.Register("CreateMove", function(cmd)
     -- toggleinput with debounce
     local currentTime = globals.CurTime()
-    if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) then
+    if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) 
+       and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
         autoWalkEnabled = not autoWalkEnabled
         AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
         lastToggleTime = currentTime
     end
- 
+
+    if input.IsButtonPressed(KEY_K) and (currentTime - lastCleanupTime > TOGGLE_COOLDOWN)
+    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
+        ForceCleanup()
+        lastCleanupTime = currentTime
+    end
+
     local me = entities.GetLocalPlayer()
     if not me then return end
     
@@ -521,7 +529,7 @@ callbacks.Register("CreateMove", function(cmd)
         ProcessExploitQueue()
     end
 end)
- 
+
 callbacks.Register("Unload", function()
     ForceCleanup()
 end)
