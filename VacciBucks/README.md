@@ -4,7 +4,7 @@ Makes robots very sad about their financial decisions. Works in MvM, uses some w
 
 ## Changelog
 
-- v1.4 UI overhaul by [StanSmits](https://github.com/StanSmits)
+- v1.4 UI overhaul by [StanSmits](https://github.com/StanSmits) 11/20/24
 - v1.3 Added Auto Walk feature & stability improvements 11/15/24
 - v1.2 Initial Release 11/13/24
 
