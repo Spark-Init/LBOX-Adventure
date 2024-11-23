@@ -1,0 +1,13 @@
+name: VacciBucks
+author: x
+description: MvM Glitch
+version: 1.4
+tags: Exploit
+url: https://raw.githubusercontent.com/Spark-Init/LBOX-Adventure/refs/heads/main/VacciBucks/vaccibucks.lua
+---
+name: EntityDebugger CR
+author: x
+description: Show Nearby Entities and their props
+version: 0.1
+tags: Debugger
+url: https://raw.githubusercontent.com/Spark-Init/LBOX-Adventure/refs/heads/main/Misc/EntityDebugger_CloseRange.lua
