@@ -1,4 +1,4 @@
--- VacciBucks v1.6 By Spark
+-- VacciBucks v1.7 By Spark
 -- Automation for MvM money glitch
 -- Equip Vaccinator for Medic, after joining the game walk in the upgrade zone - or press L to toggle auto walk - and let the ✨ magic ✨ happen
 
@@ -187,7 +187,14 @@ end
 -- make sure not to go into a server with fucked up variables
 local function CheckServerChange()
     local serverIP = engine.GetServerIP()
-    if serverIP ~= currentServer then
+    local me = entities.GetLocalPlayer()
+    
+    if serverIP ~= currentServer or not me then
+        -- Store old server IP for notification logic
+        local oldServer = currentServer
+        -- Update current server FIRST
+        currentServer = serverIP
+        
         -- reset everything
         isExploiting = false
         upgradeQueue = {}
@@ -196,12 +203,15 @@ local function CheckServerChange()
         nextUpgradeTime = 0
         shouldGuidePlayer = false
         
-        -- dont show on initial load
-        if currentServer ~= nil and serverIP then
+        -- Reset input state
+        autoWalkEnabled = config.autoWalkEnabled
+        lastToggleTime = 0
+        lastVaccWarning = false
+        
+        -- Show notification only if this wasn't the initial connection
+        if oldServer ~= nil and serverIP then
             AddNotification("Connected to new server - Reset state", "info")
         end
-        
-        currentServer = serverIP
     end
 end
 
@@ -277,32 +287,6 @@ local function FindUpgradeStations(me)
     end
     return nil
  end
- 
- callbacks.Register("CreateMove", function(cmd)
-    CheckServerChange()
-    local me = entities.GetLocalPlayer()
-    if not me then return end
-    
-    if autoWalkEnabled and shouldGuidePlayer then
-        local newMidpoint = FindUpgradeStations(me)
-        if newMidpoint then
-            midpoint = newMidpoint
-            if not lastMidpoint or 
-               lastMidpoint.x ~= midpoint.x or 
-               lastMidpoint.y ~= midpoint.y or 
-               lastMidpoint.z ~= midpoint.z then
-                AddNotification("Walking to upgrade station", "info")
-                lastMidpoint = Vector3(midpoint.x, midpoint.y, midpoint.z)
-            end
-            WalkTo(cmd, me, midpoint)
-        end
-    end
-    
-    -- reset lastmidpoint when AW is disabled
-    if not autoWalkEnabled or not shouldGuidePlayer then
-        lastMidpoint = nil
-    end
-end)
 
 -- main exploit stuff
 local function SendMvMUpgrade(itemslot, upgrade, count)
@@ -435,8 +419,14 @@ local isDragging = false
 local dragOffsetX, dragOffsetY = 0, 0
 
 
--- TODO: Add a check wether the GUI is open or not | Waiting for API update
 callbacks.Register("Draw", function()
+    if engine.IsGameUIVisible() or
+       engine.Con_IsVisible() or
+       not engine.GetServerIP() or
+       not entities.GetLocalPlayer() then
+        return
+    end
+    CheckServerChange()
     local paddingX, paddingY = 10, 5
     local baseText = "VacciBucks"
     local cleanupText = " [K] Cleanup"
@@ -550,28 +540,33 @@ end)
         
 
 callbacks.Register("CreateMove", function(cmd)
-    -- toggleinput with debounce
+    CheckServerChange()
+    local me = entities.GetLocalPlayer()
+    if not me then return end
+
     local currentTime = globals.CurTime()
+    
     if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) 
-    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
+    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
         autoWalkEnabled = not autoWalkEnabled
-        config.autoWalkEnabled = autoWalkEnabled  -- Update config value
-        SaveConfig("vaccibucks_config.txt", config)  -- Save to file
+        config.autoWalkEnabled = autoWalkEnabled
+        SaveConfig("vaccibucks_config.txt", config)
         lastVaccWarning = false
         AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
         lastToggleTime = currentTime
     end
-
+    
     if input.IsButtonPressed(KEY_K) and (currentTime - lastCleanupTime > TOGGLE_COOLDOWN)
-    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
+    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
         ForceCleanup()
         lastCleanupTime = currentTime
     end
-
-    local me = entities.GetLocalPlayer()
-    if not me then return end
     
-    -- dbg
+    if not autoWalkEnabled or not shouldGuidePlayer then
+        lastMidpoint = nil
+    end
+    
+    -- Auto walk logic
     if autoWalkEnabled then
         local inZone = me:GetPropInt('m_bInUpgradeZone') == 1
         local hasVacc = HasVaccinator(me)
