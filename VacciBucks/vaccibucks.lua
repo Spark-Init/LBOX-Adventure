@@ -1,4 +1,4 @@
--- VacciBucks v1.4.1 By Spark
+-- VacciBucks v1.5 By Spark
 -- Automation for MvM money glitch
 -- Equip Vaccinator for Medic, after joining the game walk in the upgrade zone - or press L to toggle auto walk - and let the ✨ magic ✨ happen
 
