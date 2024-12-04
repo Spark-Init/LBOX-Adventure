@@ -7,7 +7,8 @@ Uses exploit mechanics to optimize credit farming with the Vaccinator.
 
 ## Changelog  
 
-- **v1.6**: UI & Autowalk settings are now saved to a config file.
+- **v1.7**: Enhanced input handling and stability improvements (12/04/24)
+- **v1.6**: UI & Autowalk settings are now saved to a config file. (12/04/24)
 - **v1.5**: UI is now draggable. Added Secondary Weapon Check (12/04/24)
 - **v1.4**: UI overhaul by [StanSmits](https://github.com/StanSmits) (11/20/24)  
 - **v1.3**: Added Auto Walk feature and improved stability (11/15/24)  
