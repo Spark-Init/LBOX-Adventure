@@ -74,12 +74,6 @@ end
 
 -- ui stuff
 local UI = {
-   x = 20,
-   y = 300,
-   width = 450,
-   height = 115,
-   cornerRadius = 4,
-   titleFont = draw.CreateFont("Verdana Bold", 22, 800),
    mainFont = draw.CreateFont("Verdana", 16, 400),
    colors = {
        background = {15, 15, 15, 240},
