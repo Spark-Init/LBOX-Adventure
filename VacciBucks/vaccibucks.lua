@@ -1,9 +1,15 @@
--- VacciBucks v1.5 By Spark
+-- VacciBucks v1.6 By Spark
 -- Automation for MvM money glitch
 -- Equip Vaccinator for Medic, after joining the game walk in the upgrade zone - or press L to toggle auto walk - and let the ✨ magic ✨ happen
 
 -- Press [ L ] to toggle Auto Walk
 -- Press [ K ] to Force Cleanup if something breaks
+
+local config = {
+    autoWalkEnabled = false,
+    watermarkX = 10,
+    watermarkY = 10
+}
 
 local lastExploitTime = 0
 local lastCleanupTime = 0
@@ -19,13 +25,52 @@ local respawnExpected = false
 local currentServer = nil
 
 -- auto walk stuff
-local autoWalkEnabled = false
+local autoWalkEnabled = config.autoWalkEnabled
 local shouldGuidePlayer = false
 local midpoint = nil
 local lastMidpoint = nil
 
 local lastToggleTime = 0
 local TOGGLE_COOLDOWN = 0.2
+
+local function SaveConfig(filename, config)
+    local file = io.open(filename, "w")
+    if not file then return false end
+    
+    for key, value in pairs(config) do
+        file:write(tostring(key) .. "=" .. tostring(value) .. "\n")
+    end
+    
+    file:close()
+    return true
+end
+
+local function LoadConfig(filename)
+    local file = io.open(filename, "r")
+    if not file then return nil end
+    
+    local config = {}
+    for line in file:lines() do
+        local key, value = line:match("^(.-)=(.+)$")
+        if key and value then
+            if value == "true" then value = true
+            elseif value == "false" then value = false
+            elseif tonumber(value) then value = tonumber(value)
+            end
+            config[key] = value
+        end
+    end
+    
+    file:close()
+    return config
+end
+
+local loadedConfig = LoadConfig("vaccibucks_config.txt")
+if loadedConfig then
+    for k, v in pairs(loadedConfig) do
+        config[k] = v
+    end
+end
 
 -- ui stuff
 local UI = {
@@ -390,11 +435,8 @@ local function TriggerMoneyExploit()
    nextUpgradeTime = currentTime + UPGRADE_DELAY
 end
 
-local watermarkX, watermarkY = 10, 10 
-local isDragging = false 
-local dragOffsetX, dragOffsetY = 0, 0
-
-local watermarkX, watermarkY = 10, 10 
+local watermarkX = config.watermarkX 
+local watermarkY = config.watermarkY
 local isDragging = false 
 local dragOffsetX, dragOffsetY = 0, 0
 
@@ -424,14 +466,16 @@ callbacks.Register("Draw", function()
         y = input.GetMousePos()[2]
     }
 
-    local mousePos = {input.GetMousePos()}
-    local mouseX, mouseY = mousePos[1], mousePos[2]
     local screenWidth, screenHeight = draw.GetScreenSize()
 
     if input.IsButtonDown(MOUSE_LEFT) then
         if isDragging then
             watermarkX = mouse.x - dragOffsetX
             watermarkY = mouse.y - dragOffsetY
+
+            config.watermarkX = watermarkX
+            config.watermarkY = watermarkY
+            SaveConfig("vaccibucks_config.txt", config)
 
             if watermarkX < 0 then
                 watermarkX = 0
@@ -519,8 +563,10 @@ callbacks.Register("CreateMove", function(cmd)
     -- toggleinput with debounce
     local currentTime = globals.CurTime()
     if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) 
-       and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
+    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
         autoWalkEnabled = not autoWalkEnabled
+        config.autoWalkEnabled = autoWalkEnabled  -- Update config value
+        SaveConfig("vaccibucks_config.txt", config)  -- Save to file
         lastVaccWarning = false
         AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
         lastToggleTime = currentTime
@@ -604,6 +650,7 @@ end)
 
 callbacks.Register("Unload", function()
     ForceCleanup()
+    SaveConfig("vaccibucks_config.txt", config)
 end)
 
 AddNotification("VacciBucks loaded! [K] for cleanup, [L] for auto walk", "info")
