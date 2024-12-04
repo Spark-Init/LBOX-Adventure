@@ -524,11 +524,7 @@ callbacks.Register("Draw", function()
 
     local currentTime = globals.CurTime()
 
-    local totalNotificationHeight = 0
-    for i = 1, #UI.notifications do
-        local notif = UI.notifications[i]
-        totalNotificationHeight = totalNotificationHeight + UI.notificationHeight + UI.notificationSpacing
-    end
+    local totalNotificationHeight = (#UI.notifications * (UI.notificationHeight + UI.notificationSpacing))
 
     local remainingSpaceBelow = screenHeight - (watermarkY + barHeight)
     local remainingSpaceAbove = watermarkY
