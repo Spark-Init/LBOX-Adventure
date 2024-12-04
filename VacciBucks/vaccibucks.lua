@@ -7,6 +7,7 @@
 
 local lastExploitTime = 0
 local lastCleanupTime = 0
+local lastVaccWarning = false
 local COOLDOWN_TIME = 0.5
 local UPGRADE_DELAY = 0.05
 local SEQUENCE_END_COOLDOWN = 1.0
@@ -327,22 +328,16 @@ local function ProcessExploitQueue()
     nextUpgradeTime = currentTime + UPGRADE_DELAY
   end
 
-local function HasVaccinator(player)
-   if not player then return false end
-   
-   local secondaryWeapon = player:GetEntityForLoadoutSlot(LOADOUT_POSITION_SECONDARY)
-   if not secondaryWeapon then return false end
-   
-   -- check if it's a vacc (item index 998)
-   local weaponId = secondaryWeapon:GetPropInt("m_iItemDefinitionIndex")
-   local hasVacc = weaponId == 998
-
-   if not hasVacc then
-       AddNotification("Secondary weapon is not the Vaccinator!", "error")
-   end
-
-    return hasVacc
-end
+  local function HasVaccinator(player)
+    if not player then return false end
+    
+    local secondaryWeapon = player:GetEntityForLoadoutSlot(LOADOUT_POSITION_SECONDARY)
+    if not secondaryWeapon then return false end
+    
+    -- check if it's a vacc (item index 998)
+    local weaponId = secondaryWeapon:GetPropInt("m_iItemDefinitionIndex")
+    return weaponId == 998
+ end
 
 local function TriggerMoneyExploit()
    local currentTime = globals.CurTime()
@@ -526,6 +521,7 @@ callbacks.Register("CreateMove", function(cmd)
     if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) 
        and not engine.Con_IsVisible() and not engine.IsGameUIVisible() then
         autoWalkEnabled = not autoWalkEnabled
+        lastVaccWarning = false
         AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
         lastToggleTime = currentTime
     end
@@ -543,6 +539,14 @@ callbacks.Register("CreateMove", function(cmd)
     if autoWalkEnabled then
         local inZone = me:GetPropInt('m_bInUpgradeZone') == 1
         local hasVacc = HasVaccinator(me)
+        
+        if not hasVacc and not lastVaccWarning then
+            AddNotification("Secondary weapon is not the Vaccinator!", "error")
+            lastVaccWarning = true
+        elseif hasVacc then
+            lastVaccWarning = false
+        end
+
         local isExpl = isExploiting
         
         -- upd guidance states
