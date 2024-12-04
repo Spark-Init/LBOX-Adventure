@@ -1,4 +1,4 @@
--- VacciBucks v1.7 By Spark
+-- VacciBucks v1.8 By Spark
 -- Automation for MvM money glitch
 -- Equip Vaccinator for Medic, after joining the game walk in the upgrade zone - or press L to toggle auto walk - and let the ✨ magic ✨ happen
 
@@ -8,9 +8,13 @@
 local config = {
     autoWalkEnabled = false,
     watermarkX = 10,
-    watermarkY = 10
+    watermarkY = 10,
+    moneyThreshold = 5000
 }
 
+local thresholdNotificationShown = false
+local lastServerChangeNotification = 0
+local NOTIFICATION_COOLDOWN = 5.0
 local lastExploitTime = 0
 local lastCleanupTime = 0
 local lastVaccWarning = false
@@ -190,30 +194,68 @@ local function CheckServerChange()
     local me = entities.GetLocalPlayer()
     
     if serverIP ~= currentServer or not me then
-        -- Store old server IP for notification logic
         local oldServer = currentServer
-        -- Update current server FIRST
         currentServer = serverIP
         
-        -- reset everything
         isExploiting = false
         upgradeQueue = {}
         respawnExpected = false
         sequenceEndTime = 0
         nextUpgradeTime = 0
         shouldGuidePlayer = false
+        thresholdNotificationShown = false
         
-        -- Reset input state
         autoWalkEnabled = config.autoWalkEnabled
         lastToggleTime = 0
         lastVaccWarning = false
         
-        -- Show notification only if this wasn't the initial connection
         if oldServer ~= nil and serverIP then
             AddNotification("Connected to new server - Reset state", "info")
         end
     end
 end
+
+local function IsMoneyThresholdReached()
+    local me = entities.GetLocalPlayer()
+    if not me then return false end
+    
+    local currency = me:GetPropInt("m_nCurrency")
+    if not currency then return false end
+    
+    return currency >= config.moneyThreshold
+end
+
+local function onStringCmd(cmd)
+    local command = cmd:Get()
+    
+    -- Convert to lowercase and split command into parts
+    local args = {}
+    for word in string.gmatch(command:lower(), "%S+") do
+        table.insert(args, word)
+    end
+    
+    -- Check if first argument matches our command
+    if args[1] == "vb_set_threshold" then
+        local threshold = tonumber(args[2])
+        
+        if threshold then
+            if threshold > 0 then
+                config.moneyThreshold = threshold
+                SaveConfig("vaccibucks_config.txt", config)
+                AddNotification("Money threshold set to $" .. threshold, "success")
+            else
+                AddNotification("Threshold must be greater than 0", "error")
+            end
+        else
+            AddNotification("Invalid threshold value", "error")
+        end
+        
+        cmd:Set("")
+        return false
+    end
+end
+
+callbacks.Register("SendStringCmd", "threshold_command", onStringCmd)
 
 -- auto walk functions
 local function ComputeMove(userCmd, a, b)
@@ -372,6 +414,17 @@ local function TriggerMoneyExploit()
    if currentTime - lastExploitTime < COOLDOWN_TIME then return end
    if sequenceEndTime > 0 and currentTime < sequenceEndTime then return end
 
+   if IsMoneyThresholdReached() then
+    if not thresholdNotificationShown then
+        AddNotification("Money threshold ($" .. config.moneyThreshold .. ") reached!", "warning")
+        autoWalkEnabled = false -- Disable auto walk
+        config.autoWalkEnabled = false
+        SaveConfig("vaccibucks_config.txt", config)
+        thresholdNotificationShown = true
+    end
+    return
+   end
+
    local me = entities.GetLocalPlayer()
    if not me then 
        AddNotification("Local player not found!", "error")
@@ -418,7 +471,6 @@ local watermarkY = config.watermarkY
 local isDragging = false 
 local dragOffsetX, dragOffsetY = 0, 0
 
-
 callbacks.Register("Draw", function()
     if engine.IsGameUIVisible() or
        engine.Con_IsVisible() or
@@ -433,15 +485,21 @@ callbacks.Register("Draw", function()
     local autoWalkText = " [L] Autowalk"
     local enabledText = " (Enabled)"
     local exploitingText = " (Active)"
+    local thresholdText = " [$" .. config.moneyThreshold .. "]"
 
     local finalAutoWalkText = autoWalkEnabled and (autoWalkText .. enabledText) or autoWalkText
     local finalBaseText = isExploiting and (baseText .. exploitingText) or baseText
-
-    local fullText = finalBaseText .. cleanupText .. finalAutoWalkText
+    local fullText = finalBaseText .. thresholdText .. cleanupText .. finalAutoWalkText
 
     draw.SetFont(UI.mainFont)
-    local textWidth, textHeight = draw.GetTextSize(fullText)
+    local baseTextWidth, _ = draw.GetTextSize(finalBaseText)
+    local thresholdWidth, _ = draw.GetTextSize(thresholdText)
+    local baseAndThresholdWidth = baseTextWidth + thresholdWidth
+    local cleanupTextWidth, _ = draw.GetTextSize(cleanupText)
+    local autoWalkTextWidth, _ = draw.GetTextSize(autoWalkText)
+    local enabledTextWidth, _ = draw.GetTextSize(enabledText)
 
+    local textWidth, textHeight = draw.GetTextSize(fullText)
     local barWidth = textWidth + (paddingX * 2)
     local barHeight = textHeight + (paddingY * 2)
 
@@ -484,32 +542,38 @@ callbacks.Register("Draw", function()
         isDragging = false
     end
 
+    -- bg
     draw.Color(0, 0, 0, 178)
     draw.FilledRect(watermarkX, watermarkY, watermarkX + barWidth, watermarkY + barHeight)
 
+    -- top bar
     draw.Color(199, 170, 255, 255)
     draw.FilledRect(watermarkX, watermarkY, watermarkX + barWidth, watermarkY + 2)
 
+    -- base text
     draw.Color(UI.colors.text[1], UI.colors.text[2], UI.colors.text[3], 255)
     draw.Text(watermarkX + paddingX, watermarkY + paddingY, finalBaseText)
 
-    local baseTextWidth, _ = draw.GetTextSize(finalBaseText)
+    -- threshold text
+    draw.Color(UI.colors.success[1], UI.colors.success[2], UI.colors.success[3], 255)
+    draw.Text(watermarkX + paddingX + baseTextWidth, watermarkY + paddingY, thresholdText)
+
+    -- cleanup text
     draw.Color(UI.colors.textDim[1], UI.colors.textDim[2], UI.colors.textDim[3], 255)
-    draw.Text(watermarkX + paddingX + baseTextWidth, watermarkY + paddingY, cleanupText)
+    draw.Text(watermarkX + paddingX + baseAndThresholdWidth, watermarkY + paddingY, cleanupText)
 
-    local cleanupTextWidth, _ = draw.GetTextSize(cleanupText)
-    draw.Text(watermarkX + paddingX + baseTextWidth + cleanupTextWidth, watermarkY + paddingY, autoWalkText)
+    -- autowalk text
+    draw.Text(watermarkX + paddingX + baseAndThresholdWidth + cleanupTextWidth, watermarkY + paddingY, autoWalkText)
 
+    -- enabled text if autowalk is on
     if autoWalkEnabled then
-        local autoWalkTextWidth, _ = draw.GetTextSize(autoWalkText)
         draw.Color(0, 255, 0, 255)
-        draw.Text(watermarkX + paddingX + baseTextWidth + cleanupTextWidth + autoWalkTextWidth, watermarkY + paddingY, enabledText)
+        draw.Text(watermarkX + paddingX + baseAndThresholdWidth + cleanupTextWidth + autoWalkTextWidth, watermarkY + paddingY, enabledText)
     end
 
+    -- notifications
     local currentTime = globals.CurTime()
-
     local totalNotificationHeight = (#UI.notifications * (UI.notificationHeight + UI.notificationSpacing))
-
     local remainingSpaceBelow = screenHeight - (watermarkY + barHeight)
     local remainingSpaceAbove = watermarkY
 
@@ -536,8 +600,7 @@ callbacks.Register("Draw", function()
             DrawNotification(notif, watermarkX, notificationY + (i - 1) * (UI.notificationHeight + UI.notificationSpacing))
         end
     end
-end)
-        
+end)        
 
 callbacks.Register("CreateMove", function(cmd)
     CheckServerChange()
@@ -552,6 +615,7 @@ callbacks.Register("CreateMove", function(cmd)
         config.autoWalkEnabled = autoWalkEnabled
         SaveConfig("vaccibucks_config.txt", config)
         lastVaccWarning = false
+        thresholdNotificationShown = false
         AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
         lastToggleTime = currentTime
     end
