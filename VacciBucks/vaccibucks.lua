@@ -36,7 +36,6 @@ local respawnExpected = false
 local currentServer = nil
 
 -- auto walk stuff
-local autoWalkEnabled = config.autoWalkEnabled
 local shouldGuidePlayer = false
 local midpoint = nil
 
@@ -658,11 +657,13 @@ callbacks.Register("Draw", function()
             DrawNotification(notif, watermarkX, notificationY + (i - 1) * (UI.notificationHeight + UI.notificationSpacing))
         end
     end
-end)        
+end)
 
 callbacks.Register("CreateMove", function(cmd)
+    local currentTime = globals.CurTime()
     CheckServerChange()
     local me = entities.GetLocalPlayer()
+    
     if me and thresholdNotificationShown and config.changeClassEnabled and not hasTriedClassChange then
         if me:GetPropInt('m_bInUpgradeZone') ~= 1 then
             client.Command("joinclass " .. config.targetClass, true) 
@@ -673,11 +674,7 @@ callbacks.Register("CreateMove", function(cmd)
     if not me then return end
 
     if needToLeaveZone then
-        local me = entities.GetLocalPlayer()
-        if not me then return end
-
         if me:GetPropInt('m_bInUpgradeZone') == 1 then
-            -- we're still in the zone, move away
             if leaveZoneStartPos then
                 local viewAngles = engine.GetViewAngles()
                 local moveDir = viewAngles:Forward() * -1
@@ -687,13 +684,12 @@ callbacks.Register("CreateMove", function(cmd)
                 cmd:SetViewAngles(targetAngle.x, targetAngle.y, targetAngle.z)
             end
         else
-            -- just left the zone, start timer if we haven't already
             if leaveZoneTime == 0 then
-                leaveZoneTime = globals.CurTime()
+                leaveZoneTime = currentTime
                 AddNotification("Waiting before class change...", "info")
             end
             
-            if globals.CurTime() - leaveZoneTime >= 0.5 then
+            if currentTime - leaveZoneTime >= 0.5 then
                 client.Command("joinclass " .. config.targetClass, true)
                 hasTriedClassChange = true
                 needToLeaveZone = false
@@ -712,16 +708,13 @@ callbacks.Register("CreateMove", function(cmd)
         end
         return
     end
-
-    local currentTime = globals.CurTime()
     
     if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) 
     and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
-        autoWalkEnabled = not autoWalkEnabled
-        config.autoWalkEnabled = autoWalkEnabled
+        config.autoWalkEnabled = not config.autoWalkEnabled
         lastVaccWarning = false
         thresholdNotificationShown = false
-        AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
+        AddNotification("Auto Walk " .. (config.autoWalkEnabled and "Enabled" or "Disabled"), "info")
         lastToggleTime = currentTime
     end
     
@@ -731,16 +724,13 @@ callbacks.Register("CreateMove", function(cmd)
         lastCleanupTime = currentTime
     end
     
-    -- Auto walk logic
-    if autoWalkEnabled then
+    if config.autoWalkEnabled then
         local inZone = me:GetPropInt('m_bInUpgradeZone') == 1
         local hasVacc = HasVaccinator(me)
         
-        -- First check money threshold and class change
         if IsMoneyThresholdReached() then
             if not thresholdNotificationShown then
                 AddNotification("Money threshold ($" .. config.moneyThreshold .. ") reached!", "warning")
-                autoWalkEnabled = false
                 config.autoWalkEnabled = false
                 thresholdNotificationShown = true
                 
@@ -768,7 +758,6 @@ callbacks.Register("CreateMove", function(cmd)
 
         local isExpl = isExploiting
         
-        -- upd guidance states
         if not inZone and hasVacc and not isExpl then
             local newMidpoint = FindUpgradeStations(me)
             if newMidpoint then
@@ -795,7 +784,6 @@ callbacks.Register("CreateMove", function(cmd)
         end
     end
     
-    -- exploit logic
     if me:GetPropInt('m_bInUpgradeZone') == 1 and HasVaccinator(me) and not isExploiting then
         TriggerMoneyExploit()
     end
