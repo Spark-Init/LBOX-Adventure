@@ -736,6 +736,29 @@ callbacks.Register("CreateMove", function(cmd)
         local inZone = me:GetPropInt('m_bInUpgradeZone') == 1
         local hasVacc = HasVaccinator(me)
         
+        -- First check money threshold and class change
+        if IsMoneyThresholdReached() then
+            if not thresholdNotificationShown then
+                AddNotification("Money threshold ($" .. config.moneyThreshold .. ") reached!", "warning")
+                autoWalkEnabled = false
+                config.autoWalkEnabled = false
+                thresholdNotificationShown = true
+                
+                if config.changeClassEnabled and not hasTriedClassChange then
+                    if inZone then
+                        leaveZoneStartPos = me:GetAbsOrigin()
+                        needToLeaveZone = true
+                        AddNotification("Moving out of upgrade zone...", "info")
+                    else
+                        client.Command("joinclass " .. config.targetClass, true)
+                        hasTriedClassChange = true
+                        AddNotification("Changed class to " .. config.targetClass, "success")
+                    end
+                end
+            end
+            return
+        end
+        
         if not hasVacc and not lastVaccWarning then
             AddNotification("Secondary weapon is not the Vaccinator!", "error")
             lastVaccWarning = true
