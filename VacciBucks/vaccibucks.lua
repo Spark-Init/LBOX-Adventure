@@ -9,9 +9,19 @@ local config = {
     autoWalkEnabled = false,
     watermarkX = 10,
     watermarkY = 10,
-    moneyThreshold = 5000
+    moneyThreshold = 5000,
+    changeClassEnabled = false,
+    targetClass = "sniper"
 }
 
+local needToLeaveZone = false
+local leaveZoneStartPos = nil
+local leaveZoneTime = 0
+local LEAVE_ZONE_DISTANCE = 200
+local hasTriedClassChange = false
+local pendingRetry = false
+local lastRetryTime = 0
+local RETRY_COOLDOWN = 5.0
 local thresholdNotificationShown = false
 local lastServerChangeNotification = 0
 local NOTIFICATION_COOLDOWN = 5.0
@@ -204,6 +214,7 @@ local function CheckServerChange()
         nextUpgradeTime = 0
         shouldGuidePlayer = false
         thresholdNotificationShown = false
+        hasTriedClassChange = false
         
         autoWalkEnabled = config.autoWalkEnabled
         lastToggleTime = 0
@@ -225,16 +236,20 @@ local function IsMoneyThresholdReached()
     return currency >= config.moneyThreshold
 end
 
+local function IsMvMWaveActive()
+    if not gamerules.IsMvM() then return false end
+    local roundState = gamerules.GetRoundState()
+    return roundState == 4
+end
+
 local function onStringCmd(cmd)
     local command = cmd:Get()
     
-    -- Convert to lowercase and split command into parts
     local args = {}
     for word in string.gmatch(command:lower(), "%S+") do
         table.insert(args, word)
     end
     
-    -- Check if first argument matches our command
     if args[1] == "vb_set_threshold" then
         local threshold = tonumber(args[2])
         
@@ -248,6 +263,34 @@ local function onStringCmd(cmd)
             end
         else
             AddNotification("Invalid threshold value", "error")
+        end
+        
+        cmd:Set("")
+        return false
+    elseif args[1] == "vb_set_class" then
+        local validClasses = {
+            ["scout"] = true,
+            ["soldier"] = true,
+            ["pyro"] = true,
+            ["demoman"] = true,
+            ["heavy"] = true,
+            ["engineer"] = true,
+            ["medic"] = true,
+            ["sniper"] = true,
+            ["spy"] = true
+        }
+        
+        if args[2] == "off" then
+            config.changeClassEnabled = false
+            SaveConfig("vaccibucks_config.txt", config)
+            AddNotification("Auto class change disabled", "success")
+        elseif validClasses[args[2]] then
+            config.changeClassEnabled = true
+            config.targetClass = args[2]
+            SaveConfig("vaccibucks_config.txt", config)
+            AddNotification("Will change to " .. args[2] .. " after threshold", "success")
+        else
+            AddNotification("Invalid class name", "error")
         end
         
         cmd:Set("")
@@ -404,26 +447,61 @@ local function ProcessExploitQueue()
     return weaponId == 998
  end
 
-local function TriggerMoneyExploit()
-   local currentTime = globals.CurTime()
-   if isExploiting then
-       AddNotification("Sequence already in progress!", "error")
-       return
-   end
-   
-   if currentTime - lastExploitTime < COOLDOWN_TIME then return end
-   if sequenceEndTime > 0 and currentTime < sequenceEndTime then return end
-
-   if IsMoneyThresholdReached() then
-    if not thresholdNotificationShown then
-        AddNotification("Money threshold ($" .. config.moneyThreshold .. ") reached!", "warning")
-        autoWalkEnabled = false -- Disable auto walk
-        config.autoWalkEnabled = false
-        SaveConfig("vaccibucks_config.txt", config)
-        thresholdNotificationShown = true
+ local function TriggerMoneyExploit()
+    local currentTime = globals.CurTime()
+    if isExploiting then
+        AddNotification("Sequence already in progress!", "error")
+        return
     end
-    return
-   end
+    
+    if currentTime - lastExploitTime < COOLDOWN_TIME then return end
+    if sequenceEndTime > 0 and currentTime < sequenceEndTime then return end
+ 
+    if IsMvMWaveActive() then
+        if autoWalkEnabled then
+            autoWalkEnabled = false
+            config.autoWalkEnabled = false
+            SaveConfig("vaccibucks_config.txt", config)
+            AddNotification("Auto walk disabled - Wave active", "warning")
+        end
+        shouldGuidePlayer = false
+ 
+        -- handle class change when wave is active
+        if config.changeClassEnabled and not hasTriedClassChange and currentTime - lastRetryTime > RETRY_COOLDOWN then
+            AddNotification("Wave active - Reconnecting to change class...", "warning")
+            pendingRetry = true
+            lastRetryTime = currentTime
+            hasTriedClassChange = true
+            client.Command("retry", true)
+        end
+        return
+    end
+ 
+    if IsMoneyThresholdReached() then
+     if not thresholdNotificationShown then
+         AddNotification("Money threshold ($" .. config.moneyThreshold .. ") reached!", "warning")
+         autoWalkEnabled = false
+         config.autoWalkEnabled = false
+         SaveConfig("vaccibucks_config.txt", config)
+         thresholdNotificationShown = true
+         
+         if config.changeClassEnabled and not hasTriedClassChange then
+             local me = entities.GetLocalPlayer()
+             if me then
+                 if me:GetPropInt('m_bInUpgradeZone') == 1 then
+                     leaveZoneStartPos = me:GetAbsOrigin()
+                     needToLeaveZone = true
+                     AddNotification("Moving out of upgrade zone...", "info")
+                 else
+                     client.Command("joinclass " .. config.targetClass, true)
+                     hasTriedClassChange = true
+                     AddNotification("Changed class to " .. config.targetClass, "success")
+                 end
+             end
+         end
+     end
+     return
+    end
 
    local me = entities.GetLocalPlayer()
    if not me then 
@@ -605,7 +683,55 @@ end)
 callbacks.Register("CreateMove", function(cmd)
     CheckServerChange()
     local me = entities.GetLocalPlayer()
+    if me and thresholdNotificationShown and config.changeClassEnabled and not hasTriedClassChange then
+        if me:GetPropInt('m_bInUpgradeZone') ~= 1 then
+            client.Command("joinclass " .. config.targetClass, true) 
+            hasTriedClassChange = true
+            AddNotification("Changed class to " .. config.targetClass, "success")
+        end
+    end
     if not me then return end
+
+    if needToLeaveZone then
+        local me = entities.GetLocalPlayer()
+        if not me then return end
+
+        if me:GetPropInt('m_bInUpgradeZone') == 1 then
+            -- we're still in the zone, move away
+            if leaveZoneStartPos then
+                local viewAngles = engine.GetViewAngles()
+                local moveDir = viewAngles:Forward() * -1
+                
+                cmd:SetForwardMove(-450)
+                local targetAngle = EulerAngles(0, viewAngles.y, 0)
+                cmd:SetViewAngles(targetAngle.x, targetAngle.y, targetAngle.z)
+            end
+        else
+            -- just left the zone, start timer if we haven't already
+            if leaveZoneTime == 0 then
+                leaveZoneTime = globals.CurTime()
+                AddNotification("Waiting before class change...", "info")
+            end
+            
+            if globals.CurTime() - leaveZoneTime >= 0.5 then
+                client.Command("joinclass " .. config.targetClass, true)
+                hasTriedClassChange = true
+                needToLeaveZone = false
+                leaveZoneStartPos = nil
+                leaveZoneTime = 0
+                AddNotification("Changed class to " .. config.targetClass, "success")
+            end
+        end
+    end
+
+    if pendingRetry then
+        if entities.GetLocalPlayer() then
+            pendingRetry = false
+            client.Command("joinclass " .. config.targetClass, true)
+            AddNotification("Changed class to " .. config.targetClass, "success")
+        end
+        return
+    end
 
     local currentTime = globals.CurTime()
     
