@@ -7,6 +7,7 @@ Uses exploit mechanics to optimize credit farming with the Vaccinator.
 
 ## Changelog  
 
+- **v1.8**: Added money threshold and auto class change features (12/05/24)
 - **v1.7**: Enhanced input handling and stability improvements (12/04/24)
 - **v1.6**: UI & Autowalk settings are now saved to a config file. (12/04/24)
 - **v1.5**: UI is now draggable. Added Secondary Weapon Check (12/04/24)
@@ -22,6 +23,15 @@ Uses exploit mechanics to optimize credit farming with the Vaccinator.
 2. Stand at the upgrade station (or enable Auto Walk with the **L** key).  
 3. Observe the automated credit generation.  
 4. If issues arise, press **K** for an emergency reset.  
+
+---
+
+## Commands
+
+- `vb_set_threshold <amount>`: Set money threshold for auto-stop
+- `vb_set_class <class/off>`: Configure auto class change after threshold
+  - Valid classes: scout, soldier, pyro, demoman, heavy, engineer, medic, sniper, spy
+  - Use 'off' to disable
 
 ---
 
