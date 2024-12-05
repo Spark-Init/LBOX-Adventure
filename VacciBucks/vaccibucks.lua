@@ -17,14 +17,11 @@ local config = {
 local needToLeaveZone = false
 local leaveZoneStartPos = nil
 local leaveZoneTime = 0
-local LEAVE_ZONE_DISTANCE = 200
 local hasTriedClassChange = false
 local pendingRetry = false
 local lastRetryTime = 0
 local RETRY_COOLDOWN = 5.0
 local thresholdNotificationShown = false
-local lastServerChangeNotification = 0
-local NOTIFICATION_COOLDOWN = 5.0
 local lastExploitTime = 0
 local lastCleanupTime = 0
 local lastVaccWarning = false
@@ -42,7 +39,6 @@ local currentServer = nil
 local autoWalkEnabled = config.autoWalkEnabled
 local shouldGuidePlayer = false
 local midpoint = nil
-local lastMidpoint = nil
 
 local lastToggleTime = 0
 local TOGGLE_COOLDOWN = 0.2
@@ -138,7 +134,7 @@ local function AddNotification(message, type)
 end
 
 -- basic drawing stuff that i might reuse later
-local function DrawRoundedRect(x, y, w, h, radius, color)
+local function DrawRoundedRect(x, y, w, h, color)
    draw.Color(
        math.floor(color[1]), 
        math.floor(color[2]), 
@@ -180,22 +176,9 @@ local function DrawNotification(notif, x, y)
             math.floor(y + height - 2),
             math.floor((width - 2) * progress),
             2,
-            1,
             {199, 170, 255, math.floor(alpha * 0.7)}
         )
     end
-end
-
-local function AddMessage(text, color)
-   local typeMap = {
-       [table.concat(UI.colors.success)] = "success",
-       [table.concat(UI.colors.warning)] = "warning",
-       [table.concat(UI.colors.error)] = "error",
-       [table.concat(UI.colors.accent)] = "info"
-   }
-   
-   local type = typeMap[table.concat(color)] or "info"
-   AddNotification(text, type)
 end
 
 -- make sure not to go into a server with fucked up variables
@@ -461,7 +444,6 @@ local function ProcessExploitQueue()
         if autoWalkEnabled then
             autoWalkEnabled = false
             config.autoWalkEnabled = false
-            SaveConfig("vaccibucks_config.txt", config)
             AddNotification("Auto walk disabled - Wave active", "warning")
         end
         shouldGuidePlayer = false
@@ -482,7 +464,6 @@ local function ProcessExploitQueue()
          AddNotification("Money threshold ($" .. config.moneyThreshold .. ") reached!", "warning")
          autoWalkEnabled = false
          config.autoWalkEnabled = false
-         SaveConfig("vaccibucks_config.txt", config)
          thresholdNotificationShown = true
          
          if config.changeClassEnabled and not hasTriedClassChange then
@@ -575,7 +556,6 @@ callbacks.Register("Draw", function()
     local baseAndThresholdWidth = baseTextWidth + thresholdWidth
     local cleanupTextWidth, _ = draw.GetTextSize(cleanupText)
     local autoWalkTextWidth, _ = draw.GetTextSize(autoWalkText)
-    local enabledTextWidth, _ = draw.GetTextSize(enabledText)
 
     local textWidth, textHeight = draw.GetTextSize(fullText)
     local barWidth = textWidth + (paddingX * 2)
@@ -739,7 +719,6 @@ callbacks.Register("CreateMove", function(cmd)
     and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
         autoWalkEnabled = not autoWalkEnabled
         config.autoWalkEnabled = autoWalkEnabled
-        SaveConfig("vaccibucks_config.txt", config)
         lastVaccWarning = false
         thresholdNotificationShown = false
         AddNotification("Auto Walk " .. (autoWalkEnabled and "Enabled" or "Disabled"), "info")
@@ -750,10 +729,6 @@ callbacks.Register("CreateMove", function(cmd)
     and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
         ForceCleanup()
         lastCleanupTime = currentTime
-    end
-    
-    if not autoWalkEnabled or not shouldGuidePlayer then
-        lastMidpoint = nil
     end
     
     -- Auto walk logic
