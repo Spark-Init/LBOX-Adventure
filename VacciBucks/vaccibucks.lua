@@ -208,6 +208,12 @@ local function CheckServerChange()
     end
 end
 
+local function IsGameInputAllowed()
+    return not engine.Con_IsVisible() 
+           and not engine.IsGameUIVisible() 
+           and not engine.IsChatOpen()
+end
+
 local function IsMoneyThresholdReached()
     local me = entities.GetLocalPlayer()
     if not me then return false end
@@ -710,7 +716,7 @@ callbacks.Register("CreateMove", function(cmd)
     end
     
     if input.IsButtonPressed(KEY_L) and (currentTime - lastToggleTime > TOGGLE_COOLDOWN) 
-    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
+    and IsGameInputAllowed() then
         config.autoWalkEnabled = not config.autoWalkEnabled
         lastVaccWarning = false
         thresholdNotificationShown = false
@@ -719,7 +725,7 @@ callbacks.Register("CreateMove", function(cmd)
     end
     
     if input.IsButtonPressed(KEY_K) and (currentTime - lastCleanupTime > TOGGLE_COOLDOWN)
-    and not engine.Con_IsVisible() and not engine.IsGameUIVisible() and not engine.IsChatOpen() then
+    and IsGameInputAllowed() then
         ForceCleanup()
         lastCleanupTime = currentTime
     end
