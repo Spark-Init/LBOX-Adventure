@@ -1,6 +1,8 @@
 # HOP.INIT
 **An advanced bunnyhopping script with safety features**  
 Provides controlled, customizable bunnyhopping with built-in protection against detections.
+
+![HOP.INIT Demo](https://i.imgur.com/s8fw3Dl.png)  
 ---
 ## Features
 - Velocity monitoring
