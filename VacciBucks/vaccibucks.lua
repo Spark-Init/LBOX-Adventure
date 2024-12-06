@@ -133,7 +133,7 @@ local function AddNotification(message, type)
 end
 
 -- basic drawing stuff that i might reuse later
-local function DrawRoundedRect(x, y, w, h, color)
+local function DrawRect(x, y, w, h, color)
    draw.Color(
        math.floor(color[1]), 
        math.floor(color[2]), 
@@ -170,7 +170,7 @@ local function DrawNotification(notif, x, y)
     draw.Text(math.floor(x + iconWidth + 15), math.floor(y + height / 2 - 7), notif.message)
 
     if progress > 0 then
-        DrawRoundedRect(
+        DrawRect(
             math.floor(x + 1),
             math.floor(y + height - 2),
             math.floor((width - 2) * progress),
