@@ -3,6 +3,7 @@
 **A tool for efficiently generating in-game credits in MvM mode.**  
 Uses exploit mechanics to optimize credit farming with the Vaccinator.  
 
+![VacciBucks Demo](https://i.imgur.com/943BIfM.png)  
 ---
 
 ## Changelog  
