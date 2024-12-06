@@ -16,4 +16,5 @@ Provides controlled, customizable bunnyhopping with built-in protection against 
 4. Toggle safety mode with **L** key
 ---
 ## Notes
-- Safety mode is recommended for normal use as most servers with StAC will ban you after 12 frame perfect bhops.
+- Safety mode is recommended for normal use as most servers with StAC will ban you after 12 frame perfect bhops. 
+- 100% success rate with safety mode disabled, is literally the same as LMAOBOX>MISC>BUNNY HOP 
