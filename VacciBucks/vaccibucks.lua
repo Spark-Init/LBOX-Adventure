@@ -42,6 +42,9 @@ local midpoint = nil
 local lastToggleTime = 0
 local TOGGLE_COOLDOWN = 0.2
 
+local KEY_L = 22
+local KEY_K = 21
+
 local function SaveConfig(filename, config)
     local file = io.open(filename, "w")
     if not file then return false end
