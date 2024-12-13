@@ -87,6 +87,7 @@ local function drawUI()
 end
 
 local function handleKeys()
+    if engine.IsGameUIVisible() or engine.IsChatOpen() then return end
     local t=globals.RealTime()
     if t-lastActionTime<TOGGLE_DELAY then return end
     if input.IsButtonPressed(KEY_P) then bhopEnabled=not bhopEnabled resetState() lastActionTime=t
