@@ -512,24 +512,59 @@ local function ProcessExploitQueue()
    isExploiting = true
    AddNotification("Starting sequence...", "success")
    
-   upgradeQueue = {
-       {type = "begin"},
-       {type = "upgrade", slot = 1, id = 19, count = 1},
-       {type = "upgrade", slot = 1, id = 19, count = 1},
-       {type = "end", count = 2},
-       {type = "begin"},
-       {type = "upgrade", slot = 1, id = 19, count = -1},
-       {type = "upgrade", slot = 1, id = 19, count = -1},
-       {type = "end", count = -2},
-       {type = "begin"},
-       {type = "upgrade", slot = 1, id = 19, count = 1},
-       {type = "upgrade", slot = 1, id = 19, count = 1},
-       {type = "end", count = 2},
-       {type = "begin"},
-       {type = "respec"},
-       {type = "end", count = 0}
-   }
-   
+   local function SetUpgradeQueue()
+
+    local upgradeQueueGhost = {
+        {type = "begin"},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "end", count = 3},
+        {type = "begin"},
+        {type = "upgrade", slot = 1, id = 19, count = -1},
+        {type = "upgrade", slot = 1, id = 19, count = -1},
+        {type = "upgrade", slot = 1, id = 19, count = -1},
+        {type = "end", count = -3},
+        {type = "begin"},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "end", count = 3},
+        {type = "begin"},
+        {type = "respec"},
+        {type = "end", count = 0}
+    }
+
+    local upgradeQueueDefault = {
+        {type = "begin"},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "end", count = 2},
+        {type = "begin"},
+        {type = "upgrade", slot = 1, id = 19, count = -1},
+        {type = "upgrade", slot = 1, id = 19, count = -1},
+        {type = "end", count = -2},
+        {type = "begin"},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "upgrade", slot = 1, id = 19, count = 1},
+        {type = "end", count = 2},
+        {type = "begin"},
+        {type = "respec"},
+        {type = "end", count = 0}
+    }
+
+    upgradeQueue = upgradeQueueDefault -- Starts with default queue
+
+    -- Default queue is always set regardless of ghost queue, but it will be set to ghost queue if the file exists
+    filesystem.EnumerateDirectory( [[tf/custom/ghost_upgrades.vpk]] , function(filename)
+        if filename == "ghost_upgrades.vpk" then
+            AddNotification("ghost_upgrades.vpk found, using ghost queue", "info")
+            upgradeQueue = upgradeQueueGhost -- Set to ghost queue
+        end
+       end )
+end
+
+SetUpgradeQueue()
    nextUpgradeTime = currentTime + UPGRADE_DELAY
 end
 
